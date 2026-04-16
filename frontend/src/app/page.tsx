@@ -18,6 +18,8 @@ import {
   submitFeedback,
   runWhatIf,
 } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+import Auth from "@/components/Auth";
 import {
   CheckCircle,
   XCircle,
@@ -29,6 +31,7 @@ import {
   RefreshCw,
   TrendingUp,
   MessageSquare,
+  LogOut,
 } from "lucide-react";
 
 type Page = "dashboard" | "simulate" | "upload" | "live" | "whatif" | "feedback" | "chat" | "analytics";
@@ -41,6 +44,8 @@ const PIPELINE_STEPS = [
 ];
 
 export default function HomePage() {
+  const [session, setSession] = useState<any>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [reports, setReports] = useState<MaintenanceReport[]>([]);
   const [selectedReport, setSelectedReport] = useState<MaintenanceReport | null>(null);
@@ -65,6 +70,27 @@ export default function HomePage() {
     result: null,
     isLoading: false,
   });
+
+  // Handle Auth Session
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setIsAuthLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   const runPipeline = useCallback(async (fetchFn: () => Promise<any>) => {
     setIsLoading(true);
@@ -199,6 +225,18 @@ export default function HomePage() {
 
   const rawReadings = selectedReport?.readings || [];
 
+  if (isAuthLoading) {
+    return (
+      <div className="auth-container">
+        <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <div className="app-layout">
       <Sidebar 
@@ -206,6 +244,8 @@ export default function HomePage() {
         onNavigate={(p) => { setCurrentPage(p as Page); setIsSidebarOpen(false); }} 
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        userEmail={session?.user?.email}
+        onSignOut={handleSignOut}
       />
 
       {/* Main content */}

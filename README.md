@@ -33,3 +33,27 @@ The system uses a **multi-agent orchestration** (Data Interpreter → Diagnostic
 
 ---
 *Built for productivity, engineered for reliability. Ready for the future of Industry 4.0.*
+
+## 🌐 Deployment Guide (Supabase + Vercel)
+
+### 1. Database (Supabase)
+1. Create a new project on [Supabase](https://supabase.com/).
+2. Go to the **SQL Editor** and run the contents of [`backend/supabase_schema.sql`](./backend/supabase_schema.sql).
+3. Copy your **Transaction Connection String** (under Settings > Database).
+
+### 2. Backend (Vercel or Render)
+*Vercel is great for the API, but Render is recommended if you need WebSockets.*
+
+**For Vercel:**
+1. Set the following environment variables in your Vercel project:
+   - `DATABASE_URL`: Your Supabase connection string (replace `postgres://` with `postgresql+asyncpg://`).
+   - `GROQ_API_KEY`: Your Groq API key.
+2. Deploy the `/backend` folder.
+
+### 3. Frontend (Vercel)
+1. Import the `/frontend` folder into a new Vercel project.
+2. Set the Environment Variables:
+   - `NEXT_PUBLIC_API_URL`: Your deployed backend URL.
+   - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase Project URL.
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase Anon Key.
+3. Deploy!

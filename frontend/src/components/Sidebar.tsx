@@ -10,7 +10,8 @@ import {
   Settings,
   Cpu,
   ChevronRight,
-  Zap,
+  LogOut,
+  User,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -18,6 +19,8 @@ interface SidebarProps {
   onNavigate: (page: string) => void;
   isOpen?: boolean;
   onClose?: () => void;
+  userEmail?: string;
+  onSignOut?: () => void;
 }
 
 const navItems = [
@@ -46,7 +49,14 @@ const navItems = [
   },
 ];
 
-export default function Sidebar({ currentPage, onNavigate, isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ 
+  currentPage, 
+  onNavigate, 
+  isOpen, 
+  onClose,
+  userEmail,
+  onSignOut
+}: SidebarProps) {
   return (
     <>
       <aside className={`sidebar ${isOpen ? "open" : ""}`} id="main-sidebar">
@@ -119,6 +129,28 @@ export default function Sidebar({ currentPage, onNavigate, isOpen, onClose }: Si
           </div>
         ))}
       </nav>
+
+      {/* User Session */}
+      {userEmail && (
+        <div style={{ padding: "0.75rem", margin: "0.75rem", background: "rgba(255,255,255,0.03)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <User size={14} />
+            </div>
+            <div style={{ overflow: "hidden" }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{userEmail}</div>
+              <div style={{ fontSize: "0.625rem", color: "var(--text-muted)" }}>Industrial Operator</div>
+            </div>
+          </div>
+          <button 
+            className="btn btn-ghost btn-sm" 
+            onClick={onSignOut}
+            style={{ width: "100%", justifyContent: "center", textTransform: "none", fontSize: "0.6875rem", padding: "0.375rem" }}
+          >
+            <LogOut size={12} /> Sign Out
+          </button>
+        </div>
+      )}
 
       {/* Footer */}
       <div
