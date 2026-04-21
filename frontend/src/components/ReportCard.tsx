@@ -170,27 +170,26 @@ export default function ReportCard({ report }: ReportCardProps) {
         </div>
       </div>
 
-      {/* ── Technical Diagnostic ── */}
       <div className="glass-card" style={{ padding: "1.5rem" }}>
         <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <Shield size={16} color="var(--brand-primary)" /> Technical Diagnostic
         </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.5rem" }}>
           <div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.375rem" }}>Issue Summary</div>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>{diagnostic.issue_summary}</p>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>Issue Summary</div>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.6, overflowWrap: "break-word", wordBreak: "break-word" }}>{diagnostic.issue_summary}</p>
           </div>
           <div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.375rem" }}>Root Cause</div>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>{diagnostic.root_cause}</p>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>Root Cause</div>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.6, overflowWrap: "break-word", wordBreak: "break-word" }}>{diagnostic.root_cause}</p>
           </div>
           <div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.375rem" }}>Future Impact</div>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>{diagnostic.future_impact}</p>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>Future Impact</div>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.6, overflowWrap: "break-word", wordBreak: "break-word" }}>{diagnostic.future_impact}</p>
           </div>
           <div>
             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>Affected Components</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
               {diagnostic.affected_components.map((c, i) => (
                 <span key={i} style={{ padding: "0.25rem 0.625rem", background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: "var(--radius-full)", fontSize: "0.75rem", color: "var(--text-accent)", fontWeight: 600 }}>
                   {c}

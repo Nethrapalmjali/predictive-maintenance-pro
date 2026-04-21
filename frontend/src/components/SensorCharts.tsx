@@ -218,12 +218,20 @@ export default function SensorCharts({ interpretedData, rawReadings }: SensorCha
       .map((t) => t.parameter);
   }, [interpretedData.trends]);
 
+  if (sortedParams.length === 0) {
+    return (
+      <div className="glass-card" style={{ padding: "4rem 2rem", textAlign: "center", opacity: 0.6 }}>
+        <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>No sensor data trends available for this analysis.</p>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-        gap: "1.25rem",
+        gap: "1.5rem",
       }}
     >
       {sortedParams.map((param, i) => (

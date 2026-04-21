@@ -1,722 +1,308 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
-import Sidebar from "@/components/Sidebar";
-import DashboardOverview from "@/components/DashboardOverview";
-import SimulatorPanel from "@/components/SimulatorPanel";
-import CSVUploader from "@/components/CSVUploader";
-import ReportCard from "@/components/ReportCard";
-import SensorCharts from "@/components/SensorCharts";
-import LiveFeed from "@/components/LiveFeed";
-import Machine3DView from "@/components/Machine3DView";
-import AgentChat from "@/components/AgentChat";
-import AnalyticsDashboard from "@/components/AnalyticsDashboard";
-import {
-  MaintenanceReport,
-  simulateAnalysis,
-  uploadCSV,
-  submitFeedback,
-  runWhatIf,
-} from "@/lib/api";
-import { supabase } from "@/lib/supabase";
-import Auth from "@/components/Auth";
-import {
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Activity,
-  BarChart2,
-  FileText,
-  ChevronRight,
-  RefreshCw,
-  TrendingUp,
-  MessageSquare,
-  LogOut,
+import React from "react";
+import Link from "next/link";
+import { 
+  ShieldCheck, 
+  Activity, 
+  Cpu, 
+  BarChart3, 
+  Zap, 
+  ChevronRight, 
+  PlayCircle,
+  CheckCircle2,
+  Users,
+  Globe,
+  Settings
 } from "lucide-react";
+import { motion } from "framer-motion";
 
-type Page = "dashboard" | "simulate" | "upload" | "live" | "whatif" | "feedback" | "chat" | "analytics";
-
-// Pipeline step indicator
-const PIPELINE_STEPS = [
-  { label: "Data Interpreter", desc: "Trend extraction" },
-  { label: "Diagnostic Agent", desc: "AI reasoning" },
-  { label: "Simplifier Agent", desc: "Plain language" },
-];
-
-export default function HomePage() {
-  const [session, setSession] = useState<any>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState<Page>("dashboard");
-  const [reports, setReports] = useState<MaintenanceReport[]>([]);
-  const [selectedReport, setSelectedReport] = useState<MaintenanceReport | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeStep, setActiveStep] = useState<number>(-1);
-  const [activeTab, setActiveTab] = useState<"insights" | "charts">("insights");
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  const [liveData, setLiveData] = useState<MaintenanceReport | null>(null);
-  const [isLiveActive, setIsLiveActive] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [customWhatIf, setCustomWhatIf] = useState<{
-    parameter: string;
-    value: string;
-    unit: string;
-    result: any;
-    isLoading: boolean;
-  }>({
-    parameter: "temperature",
-    value: "",
-    unit: "°C",
-    result: null,
-    isLoading: false,
-  });
-
-  // Handle Auth Session
-  React.useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsAuthLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setIsAuthLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-  };
-
-  const runPipeline = useCallback(async (fetchFn: () => Promise<any>) => {
-    setIsLoading(true);
-    setError(null);
-    setActiveStep(0);
-    try {
-      await new Promise((r) => setTimeout(r, 800));
-      setActiveStep(1);
-      await new Promise((r) => setTimeout(r, 600));
-      setActiveStep(2);
-      const response = await fetchFn();
-      setActiveStep(3);
-      await new Promise((r) => setTimeout(r, 400));
-
-      if (response.success && response.report) {
-        const report = response.report as MaintenanceReport;
-        setReports((prev) => {
-          const filtered = prev.filter((r) => r.machine_id !== report.machine_id);
-          return [report, ...filtered];
-        });
-        setSelectedReport(report);
-        setCurrentPage("dashboard");
-      } else {
-        setError(response.error || "Analysis failed. Please try again.");
-      }
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.detail ||
-          err.message ||
-          "Failed to connect to the backend. Make sure the API is running on port 8000."
-      );
-    } finally {
-      setIsLoading(false);
-      setActiveStep(-1);
-    }
-  }, []);
-
-  const handleSimulate = useCallback(
-    (params: Parameters<typeof simulateAnalysis>[0]) => {
-      runPipeline(() => simulateAnalysis(params));
-    },
-    [runPipeline]
-  );
-
-  const handleCSVUpload = useCallback(
-    (file: File, meta: Record<string, string>) => {
-      runPipeline(() =>
-        uploadCSV(file, {
-          machine_id: meta.machine_id,
-          machine_name: meta.machine_name,
-          machine_type: meta.machine_type,
-          runtime_hours: meta.runtime_hours ? Number(meta.runtime_hours) : undefined,
-          last_maintenance_days: meta.last_maintenance_days
-            ? Number(meta.last_maintenance_days)
-            : undefined,
-        })
-      );
-    },
-    [runPipeline]
-  );
-
-  const handleFeedback = useCallback(
-    async (type: string) => {
-      if (!selectedReport) return;
-      await submitFeedback({
-        report_id: `${selectedReport.machine_id}-${selectedReport.analysis_timestamp}`,
-        machine_id: selectedReport.machine_id,
-        action_taken: type,
-        feedback_type: type,
-      });
-      setFeedbackSubmitted(true);
-    },
-    [selectedReport]
-  );
-
-  const handleCustomWhatIf = useCallback(async () => {
-    if (!selectedReport) return;
-    setCustomWhatIf((prev) => ({ ...prev, isLoading: true, result: null }));
-    try {
-      const response = await runWhatIf({
-        machine_id: selectedReport.machine_id,
-        parameter: customWhatIf.parameter,
-        change_value: Number(customWhatIf.value) || 0,
-        change_unit: customWhatIf.unit,
-        current_risk: selectedReport.diagnostic.risk_level,
-      });
-      if (response.success) {
-        setCustomWhatIf((prev) => ({ ...prev, result: response.what_if_result }));
-      }
-    } catch (err: any) {
-      console.error("What-if failed", err);
-    } finally {
-      setCustomWhatIf((prev) => ({ ...prev, isLoading: false }));
-    }
-  }, [selectedReport, customWhatIf]);
-
-  // Initial simulation on mount
-  React.useEffect(() => {
-    handleSimulate({
-      scenario: "normal",
-      machine_id: "MACH-001",
-      machine_name: "CNC Milling Machine",
-      machine_type: "CNC Machine",
-      num_readings: 20
-    });
-  }, []);
-
-  // Live monitor simulation
-  React.useEffect(() => {
-    let interval: any;
-    if (isLiveActive) {
-      // Simulate fetching live data every 10 seconds
-      interval = setInterval(async () => {
-        try {
-          const response = await simulateAnalysis({
-            scenario: "normal", // Live monitor usually shows normal until failure
-            machine_id: "LIVE-01",
-            machine_name: "Live Machine",
-            machine_type: "Industrial Motor",
-            num_readings: 20
-          });
-          if (response.success) {
-            setLiveData(response.report || null);
-          }
-        } catch (e) {
-          console.error("Live fetch failed", e);
-        }
-      }, 10000);
-    }
-    return () => clearInterval(interval);
-  }, [isLiveActive]);
-
-  const rawReadings = selectedReport?.readings || [];
-
-  if (isAuthLoading) {
-    return (
-      <div className="auth-container">
-        <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
-      </div>
-    );
-  }
-
-  if (!session) {
-    return <Auth />;
-  }
-
+export default function LandingPage() {
   return (
-    <div className="app-layout">
-      <Sidebar 
-        currentPage={currentPage} 
-        onNavigate={(p) => { setCurrentPage(p as Page); setIsSidebarOpen(false); }} 
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        userEmail={session?.user?.email}
-        onSignOut={handleSignOut}
-      />
+    <div className="landing-container">
+      {/* Navigation */}
+      <nav className="landing-nav">
+        <div className="nav-container">
+          <div className="nav-logo">
+            <ShieldCheck size={28} className="text-brand-primary" />
+            <span className="logo-text">PredictAI <span className="text-muted" style={{ fontWeight: 400 }}>Pro</span></span>
+          </div>
+          <div className="nav-links">
+            <a href="#features">Features</a>
+            <a href="#how-it-works">How it Works</a>
+            <a href="#pricing">Pricing</a>
+            <Link href="/login" className="btn btn-secondary btn-sm">Sign In</Link>
+            <Link href="/login" className="btn btn-primary btn-sm">Start Trial</Link>
+          </div>
+        </div>
+      </nav>
 
-      {/* Main content */}
-      <div className="main-content">
-        <div className="mobile-header">
-            <h1 style={{ fontSize: "1rem", fontWeight: 800 }}>PredictAI</h1>
-            <button className="btn btn-secondary btn-sm" onClick={() => setIsSidebarOpen(true)}>
-                <CheckCircle size={14} /> Menu
-            </button>
+      {/* Hero Section */}
+      <section className="hero-section">
+        <div className="hero-container">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="hero-content"
+          >
+            <div className="badge-pill">
+              <Zap size={14} className="text-brand-primary" />
+              <span>Version 2.0 Now Live</span>
+            </div>
+            <h1 className="hero-title">
+              Predict Machine Failures <br />
+              <span className="text-gradient">Before They Happen</span>
+            </h1>
+            <p className="hero-description">
+              PredictAI uses a specialized 3-agent AI pipeline to convert raw industrial sensor data into 
+              human-readable diagnostics and actionable maintenance steps.
+            </p>
+            <div className="hero-cta">
+              <Link href="/login" className="btn btn-primary btn-lg">
+                Access Dashboard <ChevronRight size={18} style={{ marginLeft: 8 }} />
+              </Link>
+              <button className="btn btn-secondary btn-lg">
+                <PlayCircle size={18} style={{ marginRight: 8 }} /> View Video Demo
+              </button>
+            </div>
+            <div className="hero-trust">
+              <span className="trust-label">Trusted by industry leaders in</span>
+              <div className="trust-icons">
+                <span>Automotive</span>
+                <span>Energy</span>
+                <span>Manufacturing</span>
+                <span>Aerospace</span>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="hero-visual"
+          >
+            <div className="visual-mockup">
+              <div className="mockup-header">
+                <div className="header-dots">
+                  <span /> <span /> <span />
+                </div>
+                <div className="header-title">Industrial Dashboard</div>
+              </div>
+              <div className="mockup-body">
+                <div className="mockup-chart">
+                  {/* Decorative chart elements */}
+                  <div className="chart-bar" style={{ height: '40%' }} />
+                  <div className="chart-bar" style={{ height: '60%' }} />
+                  <div className="chart-bar" style={{ height: '80%' }} />
+                  <div className="chart-bar" style={{ height: '50%' }} />
+                  <div className="chart-bar highlight" style={{ height: '90%' }} />
+                </div>
+                <div className="mockup-stats">
+                  <div className="stat-card">
+                    <Activity size={14} />
+                    <span>Health: 94%</span>
+                  </div>
+                  <div className="stat-card highlight">
+                    <Zap size={14} />
+                    <span>Risk: Low</span>
+                  </div>
+                </div>
+              </div>
+              {/* Floating elements */}
+              <div className="floating-card c1 animate-float">
+                <CheckCircle2 size={16} color="var(--risk-low)" />
+                <span>AI Verified</span>
+              </div>
+              <div className="floating-card c2 animate-float-delayed">
+                <Cpu size={16} color="var(--brand-primary)" />
+                <span>Sensors Active</span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="stats-strip">
+        <div className="stats-container">
+          <div className="stat-item">
+            <span className="stat-value">99.2%</span>
+            <span className="stat-label">Accuracy Rate</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-value">30%</span>
+            <span className="stat-label">Downtime Reduction</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-value">$2M+</span>
+            <span className="stat-label">Customer Savings</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-value">500+</span>
+            <span className="stat-label">Connected Assets</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="features-section">
+        <div className="section-header">
+          <h2 className="section-title">Built for the <span className="text-gradient">Modern Factory</span></h2>
+          <p className="section-subtitle">Comprehensive tools for maintenance teams to stay ahead of equipment wear.</p>
         </div>
 
-        {/* ── Pipeline progress bar (when loading) ── */}
-        {isLoading && (
-          <div className="pipeline-loader">
-            <div className="spinner" style={{ flexShrink: 0 }} />
-            <div className="pipeline-steps" style={{ margin: 0 }}>
-              {PIPELINE_STEPS.map((step, i) => (
-                <div key={i} className="pipeline-step">
-                  <div
-                    className={`step-bubble ${
-                      activeStep === i
-                        ? "active"
-                        : activeStep > i
-                        ? "done"
-                        : ""
-                    }`}
-                  >
-                    {activeStep > i ? (
-                      <CheckCircle size={13} />
-                    ) : activeStep === i ? (
-                      <div className="spinner" style={{ width: 13, height: 13, borderWidth: 1.5 }} />
-                    ) : null}
-                    {step.label}
-                  </div>
-                  {i < PIPELINE_STEPS.length - 1 && (
-                    <div className="step-connector">
-                      <ChevronRight size={12} color="var(--text-muted)" style={{ margin: "0 auto" }} />
-                    </div>
-                  )}
-                </div>
-              ))}
+        <div className="features-grid">
+          {[
+            {
+              icon: <Cpu size={24} />,
+              title: "3D Digital Twin",
+              desc: "Real-time 3D machine visualization that reacts to health telemetry."
+            },
+            {
+              icon: <Zap size={24} />,
+              title: "What-If Simulator",
+              desc: "Predict how environmental changes will impact machine reliability."
+            },
+            {
+              icon: <Users size={24} />,
+              title: "Agent Command Center",
+              desc: "Talk to our specialized AI agents for deep-dive reasoning."
+            },
+            {
+              icon: <Activity size={24} />,
+              title: "Real-time Telemetry",
+              desc: "Millisecond-latency streaming from industrial PLC and IoT gateways."
+            },
+            {
+              icon: <BarChart3 size={24} />,
+              title: "Fleet Analytics",
+              desc: "Aggregated health metrics across all your facilities and machinery."
+            },
+            {
+              icon: <Globe size={24} />,
+              title: "Cloud Integration",
+              desc: "Seamless connection with Azure IoT, AWS Greengrass, and MQTT."
+            }
+          ].map((feature, i) => (
+            <div key={i} className="glass-card feature-card">
+              <div className="feature-icon">{feature.icon}</div>
+              <h3 className="feature-title">{feature.title}</h3>
+              <p className="feature-desc">{feature.desc}</p>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
+      </section>
 
-        {/* ── Error Banner ── */}
-        {error && (
-          <div className="alert alert-danger animate-fadeIn" style={{ marginBottom: "1.25rem" }}>
-            <XCircle size={16} style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <strong>Analysis Error:</strong> {error}
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => setError(null)} style={{ padding: "0.25rem" }}>
-              <XCircle size={14} />
-            </button>
-          </div>
-        )}
+      {/* Pricing Section */}
+      <section id="pricing" className="pricing-section">
+        <div className="section-header">
+          <h2 className="section-title">Simple <span className="text-gradient">Scalable Pricing</span></h2>
+          <p className="section-subtitle">Choose the plan that fits your facility size and asset complexity.</p>
+        </div>
 
-        {/* ═══════════════ PAGES ═══════════════ */}
-
-        {/* Dashboard */}
-        {currentPage === "dashboard" && (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">
-                Machine Health <span className="text-gradient">Dashboard</span>
-              </h1>
-              <p className="page-subtitle">
-                Real-time AI-powered diagnostics for your industrial equipment
-              </p>
-            </div>
-
-            <div className={selectedReport ? "dashboard-layout" : ""}>
-              {/* Left: machine list */}
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                  <h2 style={{ fontSize: "0.9375rem", fontWeight: 700 }}>Monitored Machines</h2>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setCurrentPage("simulate")}
-                  >
-                    + Add Analysis
-                  </button>
-                </div>
-                <DashboardOverview
-                  reports={reports}
-                  onSelectReport={(r) => { setSelectedReport(r); setActiveTab("insights"); setFeedbackSubmitted(false); }}
-                  selectedId={selectedReport?.machine_id}
-                />
+        <div className="pricing-grid">
+          {[
+            {
+              name: "Starter",
+              price: "$499",
+              duration: "per month",
+              features: ["Up to 5 Machines", "Basic AI Diagnostics", "Email Alerts", "Mobile App Access"],
+              isPopular: false
+            },
+            {
+              name: "Enterprise",
+              price: "$1,999",
+              duration: "per month",
+              features: ["Unlimited Machines", "3-Agent Orchestration", "What-If Simulation", "24/7 Dedicated Support", "API Access"],
+              isPopular: true
+            },
+            {
+              name: "Custom",
+              price: "Contact Us",
+              duration: "for custom setup",
+              features: ["On-Premise Deployment", "Custom ML Models", "White-label Option", "Security Audit Support"],
+              isPopular: false
+            }
+          ].map((plan, i) => (
+            <div key={i} className={`glass-card pricing-card ${plan.isPopular ? 'popular' : ''}`}>
+              {plan.isPopular && <div className="popular-badge">Most Popular</div>}
+              <h3 className="plan-name">{plan.name}</h3>
+              <div className="plan-price">
+                <span className="price-value">{plan.price}</span>
+                <span className="price-duration">{plan.duration}</span>
               </div>
+              <ul className="plan-features">
+                {plan.features.map((f, j) => (
+                  <li key={j}><CheckCircle2 size={16} /> {f}</li>
+                ))}
+              </ul>
+              <button className={`btn ${plan.isPopular ? 'btn-primary' : 'btn-secondary'} w-full`}>
+                Get Started
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
 
-              {/* Right: selected report details */}
-              {selectedReport && (
-                <div className="animate-slideInRight">
-                  {/* Report header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-                    <div>
-                      <h2 style={{ fontSize: "1.125rem", fontWeight: 800 }}>{selectedReport.machine_name}</h2>
-                      <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: 2 }}>
-                        {selectedReport.machine_id} · {selectedReport.machine_type} ·{" "}
-                        {new Date(selectedReport.analysis_timestamp).toLocaleString()}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => runPipeline(() =>
-                          simulateAnalysis({
-                            scenario: "overheating",
-                            machine_id: selectedReport.machine_id,
-                            machine_name: selectedReport.machine_name,
-                            machine_type: selectedReport.machine_type,
-                          })
-                        )}
-                        title="Re-analyze"
-                      >
-                        <RefreshCw size={14} />
-                      </button>
-                    </div>
-                  </div>
+      {/* CTA Section */}
+      <section className="bottom-cta">
+        <div className="cta-banner glass-card">
+          <h2>Ready to eliminate unplanned downtime?</h2>
+          <p>Join over 200 manufacturing plants using PredictAI to optimize their maintenance workflow.</p>
+          <div className="cta-buttons">
+            <Link href="/login" className="btn btn-primary btn-lg">Start Free Trial Now</Link>
+            <button className="btn btn-ghost btn-lg">Contact Sales Representative</button>
+          </div>
+        </div>
+      </section>
 
-                  {/* Tabs */}
-                  <div className="tab-list" style={{ marginBottom: "1.25rem" }}>
-                    <button
-                      className={`tab-item ${activeTab === "insights" ? "active" : ""}`}
-                      onClick={() => setActiveTab("insights")}
-                      id="tab-insights"
-                    >
-                      <FileText size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
-                      AI Insights
-                    </button>
-                    <button
-                      className={`tab-item ${activeTab === "charts" ? "active" : ""}`}
-                      onClick={() => setActiveTab("charts")}
-                      id="tab-charts"
-                    >
-                      <BarChart2 size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
-                      Sensor Charts
-                    </button>
-                  </div>
-
-                  {activeTab === "insights" && (
-                    <>
-                      <ReportCard report={selectedReport} />
-                      {/* Feedback */}
-                      {!feedbackSubmitted ? (
-                        <div
-                          className="glass-card"
-                          style={{ padding: "1.25rem", marginTop: "1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>Was this diagnosis helpful?</div>
-                            <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem", marginTop: 2 }}>
-                              Your feedback helps improve the AI system
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", gap: "0.5rem" }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => handleFeedback("correct")} id="feedback-correct">
-                              <CheckCircle size={14} color="var(--risk-low)" /> Accurate
-                            </button>
-                            <button className="btn btn-secondary btn-sm" onClick={() => handleFeedback("partial")} id="feedback-partial">
-                              <AlertTriangle size={14} color="var(--risk-medium)" /> Partially
-                            </button>
-                            <button className="btn btn-danger btn-sm" onClick={() => handleFeedback("incorrect")} id="feedback-incorrect">
-                              <XCircle size={14} /> Incorrect
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="alert alert-success animate-fadeIn" style={{ marginTop: "1.25rem" }}>
-                          <CheckCircle size={16} />
-                          Thank you! Your feedback has been recorded.
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {activeTab === "charts" && (
-                    <SensorCharts
-                      interpretedData={selectedReport.interpreted_data}
-                      rawReadings={rawReadings as any}
-                    />
-                  )}
-                </div>
-              )}
+      {/* Footer */}
+      <footer className="landing-footer">
+        <div className="footer-container">
+          <div className="footer-info">
+            <div className="nav-logo">
+              <ShieldCheck size={24} className="text-brand-primary" />
+              <span className="logo-text">PredictAI</span>
+            </div>
+            <p>Intelligence for Industry 4.0. Built with security and reliability at its core.</p>
+          </div>
+          <div className="footer-links">
+            <div className="link-group">
+              <h4>Product</h4>
+              <a href="#">Features</a>
+              <a href="#">Roadmap</a>
+              <a href="#">Security</a>
+            </div>
+            <div className="link-group">
+              <h4>Company</h4>
+              <a href="#">About Us</a>
+              <a href="#">Careers</a>
+              <a href="#">Contact</a>
+            </div>
+            <div className="link-group">
+              <h4>Resources</h4>
+              <a href="#">Documentation</a>
+              <a href="#">Blog</a>
+              <a href="#">Tutorials</a>
             </div>
           </div>
-        )}
-
-        {/* Simulate */}
-        {currentPage === "simulate" && (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">
-                Run <span className="text-gradient">Simulation</span>
-              </h1>
-              <p className="page-subtitle">
-                Simulate real machine failure scenarios and watch the 3-agent AI pipeline analyze them
-              </p>
-            </div>
-            <SimulatorPanel onSimulate={handleSimulate} isLoading={isLoading} />
+        </div>
+        <div className="footer-bottom">
+          <p>&copy; 2026 PredictAI Systems Inc. All rights reserved.</p>
+          <div className="bottom-links">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
+            <a href="#">Cookie Policy</a>
           </div>
-        )}
+        </div>
+      </footer>
 
-        {/* Upload */}
-        {currentPage === "upload" && (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">
-                Upload <span className="text-gradient">CSV Data</span>
-              </h1>
-              <p className="page-subtitle">
-                Upload your machine's sensor data in CSV format for AI-powered analysis
-              </p>
-            </div>
-            <CSVUploader onUpload={handleCSVUpload} isLoading={isLoading} />
-          </div>
-        )}
-
-        {/* Live Monitor */}
-        {currentPage === "live" && (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">
-                Live <span className="text-gradient">Monitor</span>
-              </h1>
-              <p className="page-subtitle">
-                Real-time streaming sensor data and continuous anomaly detection
-              </p>
-            </div>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.5rem", alignItems: "start" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: "1.5rem" }}>
-                  <Machine3DView isAnomaly={liveData?.interpreted_data?.anomalies?.length ? liveData.interpreted_data.anomalies.length > 0 : false} />
-                  <LiveFeed />
-                </div>
-                {liveData && (
-                    <div className="animate-fadeIn">
-                        <div className="page-header" style={{ marginBottom: "1rem" }}>
-                            <h2 style={{ fontSize: "1.125rem" }}>Last Auto-Diagnostic: {liveData.machine_name}</h2>
-                        </div>
-                        <SensorCharts 
-                            interpretedData={liveData.interpreted_data}
-                            rawReadings={liveData.readings as any}
-                        />
-                    </div>
-                )}
-              </div>
-
-              <div className="glass-card" style={{ padding: "1.5rem" }}>
-                <h3 style={{ fontSize: "0.9375rem", fontWeight: 700, marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <Activity size={16} color="var(--brand-primary)" /> Stream Control
-                </h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <button 
-                    className={`btn ${isLiveActive ? "btn-danger" : "btn-primary"}`} 
-                    onClick={() => setIsLiveActive(!isLiveActive)}
-                    style={{ width: "100%" }}
-                  >
-                    {isLiveActive ? "Stop Monitioring" : "Start Live Stream"}
-                  </button>
-                  <div style={{ padding: "1rem", background: "rgba(255,255,255,0.02)", borderRadius: "var(--radius-md)", fontSize: "0.8125rem" }}>
-                    <div style={{ color: "var(--text-secondary)", marginBottom: "0.5rem" }}>Connection Status</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: isLiveActive ? "var(--risk-low)" : "var(--text-muted)", fontWeight: 700 }}>
-                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: isLiveActive ? "var(--risk-low)" : "var(--text-muted)" }} />
-                       {isLiveActive ? "Syncing..." : "Disconnected"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* What-If */}
-        {currentPage === "whatif" && (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">
-                What-If <span className="text-gradient">Simulator</span>
-              </h1>
-              <p className="page-subtitle">
-                Explore how specific parameter changes might affect machine risk levels
-              </p>
-            </div>
-
-            <div className="whatif-layout">
-              <div>
-                <div style={{ marginBottom: "1.5rem" }}>
-                  <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem" }}>Active Analysis Results</h2>
-                  {selectedReport?.what_if_scenarios ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                      {selectedReport.what_if_scenarios.map((s, i) => (
-                        <div key={i} className="glass-card-elevated animate-fadeInUp" style={{ padding: "1.5rem", animationDelay: `${i * 100}ms` }}>
-                          <div style={{ fontWeight: 700, fontSize: "1.0625rem", marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                            <span style={{ color: "var(--brand-accent)", textTransform: "uppercase" }}>{s.parameter}</span>
-                            <span style={{ color: "var(--text-muted)", fontSize: "0.875rem", fontWeight: 400 }}>increases by</span>
-                            <span style={{ color: "var(--risk-medium)" }}>{s.change}</span>
-                            <span className={`badge badge-${s.result.new_risk_level.toLowerCase()}`} style={{ marginLeft: "auto" }}>
-                              → {s.result.new_risk_level}
-                            </span>
-                          </div>
-                          <p style={{ color: "var(--text-secondary)", marginBottom: "0.75rem", fontSize: "0.875rem", lineHeight: 1.6 }}>{s.result.scenario_description}</p>
-                          <div style={{ display: "flex", gap: "1.5rem", fontSize: "0.8125rem", background: "rgba(255,255,255,0.02)", padding: "0.75rem", borderRadius: "var(--radius-md)" }}>
-                            <div>
-                              <span style={{ color: "var(--text-muted)" }}>Prob. of Failure: </span>
-                              <strong style={{ color: "var(--risk-high)" }}>{s.result.probability_of_failure}</strong>
-                            </div>
-                            <div>
-                              <span style={{ color: "var(--text-muted)" }}>Action: </span>
-                              <span style={{ color: "var(--text-secondary)" }}>{s.result.recommended_immediate_action}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="glass-card" style={{ padding: "3rem 2rem", textAlign: "center", opacity: 0.6 }}>
-                      <AlertTriangle size={36} style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
-                      <p>Run a simulation on the dashboard first to generate AI-suggested scenarios.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sidebar form for custom what-if */}
-              <div className="glass-card" style={{ padding: "1.5rem", position: "sticky", top: "2rem" }}>
-                <h3 style={{ fontSize: "0.9375rem", fontWeight: 700, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <TrendingUp size={16} color="var(--brand-primary)" /> Custom Analysis
-                </h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <div className="form-group">
-                    <label className="form-label">Parameter</label>
-                    <select 
-                        className="input" 
-                        value={customWhatIf.parameter}
-                        onChange={(e) => setCustomWhatIf(prev => ({ ...prev, parameter: e.target.value }))}
-                    >
-                      <option value="temperature">Temperature</option>
-                      <option value="vibration">Vibration</option>
-                      <option value="pressure">Pressure</option>
-                      <option value="rpm">RPM</option>
-                      <option value="current">Current</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Increase Value</label>
-                    <input 
-                        type="number" 
-                        className="input" 
-                        placeholder="e.g. 15" 
-                        value={customWhatIf.value}
-                        onChange={(e) => setCustomWhatIf(prev => ({ ...prev, value: e.target.value }))}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Unit</label>
-                    <input 
-                        type="text" 
-                        className="input" 
-                        placeholder="e.g. °C or %" 
-                        value={customWhatIf.unit}
-                        onChange={(e) => setCustomWhatIf(prev => ({ ...prev, unit: e.target.value }))}
-                    />
-                  </div>
-                  <button 
-                    className="btn btn-primary" 
-                    style={{ marginTop: "0.5rem" }}
-                    onClick={handleCustomWhatIf}
-                    disabled={customWhatIf.isLoading || !selectedReport}
-                  >
-                    {customWhatIf.isLoading ? <div className="spinner" /> : "Predict Impact"}
-                  </button>
-                  
-                  {customWhatIf.result && (
-                    <div className="animate-fadeIn" style={{ marginTop: "1rem", padding: "1rem", background: "rgba(99,102,241,0.05)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
-                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                            <span style={{ fontWeight: 700, fontSize: "0.8125rem" }}>Prediction</span>
-                            <span className={`badge badge-${customWhatIf.result.new_risk_level.toLowerCase()}`}>{customWhatIf.result.new_risk_level}</span>
-                         </div>
-                         <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                            {customWhatIf.result.scenario_description}
-                         </p>
-                    </div>
-                  )}
-
-                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.5rem", textAlign: "center" }}>
-                    Uses the Diagnostic Agent to reason about causal effects.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Analytics Page */}
-        {currentPage === "analytics" && (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">
-                Industrial <span className="text-gradient">Analytics</span>
-              </h1>
-              <p className="page-subtitle">
-                Long-term health trends, failure distribution, and AI-driven efficiency metrics
-              </p>
-            </div>
-            <AnalyticsDashboard />
-          </div>
-        )}
-
-        {/* Chat page */}
-        {currentPage === "chat" && (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">
-                Agent <span className="text-gradient">Command Center</span>
-              </h1>
-              <p className="page-subtitle">
-                Interact with the 3-agent pipeline for detailed diagnostic reasoning
-              </p>
-            </div>
-            <AgentChat />
-          </div>
-        )}
-
-        {/* Feedback page */}
-        {currentPage === "feedback" && (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">
-                Operator <span className="text-gradient">Feedback</span>
-              </h1>
-              <p className="page-subtitle">
-                Help the AI improve by telling us when diagnoses are right or wrong
-              </p>
-            </div>
-            <div className="alert alert-info" style={{ marginBottom: "1.5rem" }}>
-              <Activity size={16} />
-              Feedback is stored and used to improve diagnostic accuracy over time.
-            </div>
-            {selectedReport ? (
-              <div className="glass-card" style={{ padding: "1.5rem" }}>
-                <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Current Report: {selectedReport.machine_name}</div>
-                <p style={{ color: "var(--text-secondary)", marginBottom: "1.25rem" }}>{selectedReport.diagnostic.issue_summary}</p>
-                {!feedbackSubmitted ? (
-                  <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                    <button className="btn btn-secondary" onClick={() => { handleFeedback("correct"); setCurrentPage("dashboard"); }} id="fb-correct">
-                      <CheckCircle size={16} color="var(--risk-low)" /> Diagnosis is Correct
-                    </button>
-                    <button className="btn btn-secondary" onClick={() => { handleFeedback("partial"); setCurrentPage("dashboard"); }} id="fb-partial">
-                      <AlertTriangle size={16} color="var(--risk-medium)" /> Partially Correct
-                    </button>
-                    <button className="btn btn-danger" onClick={() => { handleFeedback("incorrect"); setCurrentPage("dashboard"); }} id="fb-incorrect">
-                      <XCircle size={16} /> Incorrect
-                    </button>
-                  </div>
-                ) : (
-                  <div className="alert alert-success">
-                    <CheckCircle size={16} /> Feedback submitted — thank you!
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="alert alert-warning">
-                <AlertTriangle size={16} /> No report selected. Run a simulation first.
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Background blobs */}
+      <div className="bg-blob b1" />
+      <div className="bg-blob b2" />
+      <div className="bg-blob b3" />
     </div>
   );
 }

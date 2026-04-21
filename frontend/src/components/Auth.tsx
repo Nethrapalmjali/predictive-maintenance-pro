@@ -110,12 +110,30 @@ export default function Auth() {
           </button>
         </form>
 
-        <div className="auth-footer">
+        <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <button 
             className="btn btn-ghost btn-sm"
             onClick={() => setIsSignUp(!isSignUp)}
           >
             {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+          </button>
+          
+          <div style={{ position: 'relative', textAlign: 'center', margin: '0.5rem 0' }}>
+            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'var(--border-subtle)' }} />
+            <span style={{ position: 'relative', background: 'var(--bg-elevated)', padding: '0 0.75rem', fontSize: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Development</span>
+          </div>
+
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              // Mock session for development
+              const mockSession = { user: { email: 'operator@predictai.internal' } };
+              localStorage.setItem('mock-session', JSON.stringify(mockSession));
+              window.dispatchEvent(new CustomEvent('mock-login', { detail: mockSession }));
+            }}
+          >
+            <Sparkles size={14} style={{ marginRight: 8 }} />
+            Bypass Login (Guest Access)
           </button>
         </div>
 

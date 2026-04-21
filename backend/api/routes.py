@@ -109,19 +109,28 @@ async def analyze_machine(request: AnalysisRequest, db: AsyncSession = Depends(g
         elapsed_ms = round((time.time() - start_time) * 1000, 2)
         
         # Persistence
-        db_report = MaintenanceReportDB(
-            machine_id=report.machine_id,
-            machine_name=report.machine_name,
-            machine_type=report.machine_type,
-            analysis_timestamp=report.analysis_timestamp,
-            report_json=report.model_dump()
-        )
-        db.add(db_report)
-        await db.commit()
+        try:
+            db_report = MaintenanceReportDB(
+                machine_id=report.machine_id,
+                machine_name=report.machine_name,
+                machine_type=report.machine_type,
+                analysis_timestamp=report.analysis_timestamp,
+                report_json=report.model_dump(mode='json')
+            )
+            db.add(db_report)
+            await db.commit()
+        except Exception as db_err:
+            print(f"[Database] Error saving report: {db_err}")
+            # We don't want to fail the whole request if only persistence fails
+            # But we should at least know about it.
+            await db.rollback()
 
         return AnalysisResponse(success=True, report=report, processing_time_ms=elapsed_ms)
 
     except Exception as e:
+        import traceback
+        print(f"[API] Fatal error in /analyze: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -136,7 +145,8 @@ async def upload_csv(
     machine_name: str = "Uploaded Machine",
     machine_type: str = "Industrial Motor",
     runtime_hours: Optional[float] = None,
-    last_maintenance_days: Optional[int] = None
+    last_maintenance_days: Optional[int] = None,
+    db: AsyncSession = Depends(get_db)
 ):
     """Upload a CSV file and run the analysis pipeline."""
     if not file.filename.endswith(".csv"):
@@ -174,7 +184,7 @@ async def upload_csv(
     )
 
     request = AnalysisRequest(machine_data=machine_data)
-    return await analyze_machine(request)
+    return await analyze_machine(request, db=db)
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +192,7 @@ async def upload_csv(
 # ---------------------------------------------------------------------------
 
 @router.post("/simulate", response_model=AnalysisResponse)
-async def simulate_analysis(req: SimulatedDataRequest):
+async def simulate_analysis(req: SimulatedDataRequest, db: AsyncSession = Depends(get_db)):
     """Run analysis on simulated IoT data for demo purposes."""
     raw_readings = get_simulated_data(scenario=req.scenario, n=req.num_readings)
     readings = [SensorReading(**r) for r in raw_readings]
@@ -197,7 +207,7 @@ async def simulate_analysis(req: SimulatedDataRequest):
     )
 
     analysis_request = AnalysisRequest(machine_data=machine_data)
-    return await analyze_machine(analysis_request)
+    return await analyze_machine(analysis_request, db=db)
 
 
 @router.get("/scenarios")

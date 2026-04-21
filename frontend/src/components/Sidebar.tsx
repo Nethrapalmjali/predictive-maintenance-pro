@@ -12,6 +12,7 @@ import {
   ChevronRight,
   LogOut,
   User,
+  Zap,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -152,24 +153,20 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* Footer */}
-      <div
-        style={{
-          padding: "1rem 1.25rem",
-          borderTop: "1px solid var(--border-subtle)",
-          fontSize: "0.6875rem",
-          color: "var(--text-muted)",
-          lineHeight: 1.6,
-        }}
-      >
-        <div style={{ fontWeight: 700, color: "var(--text-secondary)", marginBottom: 4 }}>
+      {/* Footer / Pipeline Status */}
+      <div className="sidebar-footer">
+        <div style={{ fontWeight: 700, color: "var(--text-secondary)", marginBottom: 6, fontSize: "0.75rem" }}>
           3-Agent AI Pipeline
         </div>
-        <div style={{ marginBottom: 12 }}>Data Interpreter → Diagnostic → Simplifier</div>
+        <div style={{ marginBottom: 16, opacity: 0.8, fontSize: "0.6875rem" }}>
+          Interpreter → Diagnostic → Simplifier
+        </div>
         
-        <div style={{ padding: "0.5rem", background: "rgba(16,185,129,0.05)", borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--risk-low)", boxShadow: "0 0 8px var(--risk-low)" }} />
-           <span style={{ color: "var(--risk-low)", fontWeight: 700, textTransform: "uppercase", fontSize: "0.625rem" }}>System Health: Optimal</span>
+        <div className="pipeline-status">
+           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--risk-low)", boxShadow: "0 0 10px var(--risk-low)" }} />
+           <span style={{ color: "var(--risk-low)", fontWeight: 800, textTransform: "uppercase", fontSize: "0.625rem", letterSpacing: "0.05em" }}>
+             System Health: Optimal
+           </span>
         </div>
       </div>
     </aside>

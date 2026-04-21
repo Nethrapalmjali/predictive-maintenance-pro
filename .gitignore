@@ -19,6 +19,7 @@ dist/
 
 # Database
 *.db
+*.db-journal
 *.sqlite3
 maintenance.db
 
