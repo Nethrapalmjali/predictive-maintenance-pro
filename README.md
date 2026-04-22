@@ -1,8 +1,10 @@
 # 🛠️ Predictive Maintenance Assistant Pro (v2.0)
 
+**Live Production URL:** [https://predictive-maintenance-pro.vercel.app](https://predictive-maintenance-pro.vercel.app)
+
 An AI-powered industrial maintenance platform that converts raw sensor data into human-readable diagnostics and actionable preventive maintenance steps.
 
-## 🔥 Quick Start (Productivity Guide)
+## 🔥 Quick Start (Local Development)
 
 To get the project running in under 2 minutes:
 
