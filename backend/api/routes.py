@@ -20,7 +20,9 @@ from agents.simplifier_agent import simplifier_agent
 from ml.data_simulator import get_simulated_data, SCENARIO_MAP
 from ml.cost_estimator import calculate_cost_estimate
 from db.session import get_db
-from models.db_models import MaintenanceReportDB, FeedbackDB
+from models.db_models import (
+    MaintenanceReportDB, FeedbackDB, ChatSessionDB, ChatMessageDB
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -267,7 +269,9 @@ async def submit_feedback(req: FeedbackRequest, db: AsyncSession = Depends(get_d
 @router.post("/chat")
 async def agent_chat(req: dict, db: AsyncSession = Depends(get_db)):
     """Conversational endpoint for interacting with the Simplifier Agent with memory."""
-    message = req.get("message", "")
+    message = (req.get("message") or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="'message' must be a non-empty string")
     machine_id = req.get("machine_id", "GLOBAL")
     session_id = req.get("session_id", f"session-{machine_id}")
     
