@@ -125,4 +125,4 @@ class SimulatedDataRequest(BaseModel):
     machine_name: str = "CNC Milling Machine"
     machine_type: str = "CNC Machine"
     scenario: str = "overheating"  # "overheating", "bearing_wear", "normal", "critical"
-    num_readings: int = 20
+    num_readings: int = Field(default=20, ge=5, le=500, description="Number of simulated readings to generate")
