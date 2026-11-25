@@ -104,7 +104,10 @@ class AnomalyDetector:
             # Low-side breach (below threshold is bad)
             if latest <= critical:
                 return {"breach": True, "severity": "critical", "direction": "low"}
-            elif latest <= warning_min:
+            elif latest < normal_min:
+                # Below the normal range but not yet critical. (warning_min
+                # equals the critical threshold for low-side parameters, so
+                # the normal range's lower bound is the warning boundary.)
                 return {"breach": True, "severity": "warning", "direction": "low"}
         else:
             # High-side breach (above threshold is bad)

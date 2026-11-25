@@ -32,3 +32,15 @@ def test_analyze_handles_empty_readings():
     result = AnomalyDetector().analyze([])
     assert result["parameters"] == {}
     assert result["overall_severity"] == "normal"
+
+
+def test_low_side_parameters_raise_warning_before_critical():
+    det = AnomalyDetector()
+    # voltage normal 220-240, critical <= 200
+    assert det._check_thresholds("voltage", [230])["severity"] == "normal"
+    assert det._check_thresholds("voltage", [210])["severity"] == "warning"
+    assert det._check_thresholds("voltage", [195])["severity"] == "critical"
+    # oil_level normal >= 30, critical <= 15
+    assert det._check_thresholds("oil_level", [50])["severity"] == "normal"
+    assert det._check_thresholds("oil_level", [20])["severity"] == "warning"
+    assert det._check_thresholds("oil_level", [10])["severity"] == "critical"
